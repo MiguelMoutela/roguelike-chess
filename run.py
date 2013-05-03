@@ -1,5 +1,5 @@
 import subprocess
-import time
+from optparse import OptionParser
 import sys
 import chess
 
@@ -95,21 +95,28 @@ class Engine(object):
     def stop(self):
         return self.put('stop')
 
-    def get(self):
-        self.engine.stdin.write('isready\n')
-        while True:
-            text = self.engine.stdout.readline().strip()
-            if text == 'readyok':
-                break
-            if text != '':
-                continue
+    def get(self, wait=False):
+        if wait:
+            self.engine.stdin.write('isready\n')
+            while True:
+                text = self.engine.stdout.readline().strip()
+                if not text.startswith('bestmove'):
+                    continue
+                else:
+                    return text
+        else:
+            self.engine.stdin.write('isready\n')
+            while True:
+                text = self.engine.stdout.readline().strip()
+                if text == 'readyok':
+                    break
 
 
 def parse_best_move(value):
     return value.split(' ')[1]
 
 
-def next_move(fen, thinking_time=1000):
+def next_move(fen, thinking_time):
     e = Engine()
     e.get()
     e.put('uci')
@@ -118,17 +125,15 @@ def next_move(fen, thinking_time=1000):
     e.get()
     e.put('position fen %s' % fen)
     e.get()
-    e.put('go infinite')
-    time.sleep(float(thinking_time) / 1000.0)
-    e.get()
-    v = e.stop()
+    e.put('go movetime %s' % thinking_time)
+    v = e.get(wait=True)
     e.get()
     e.put('quit')
 
     return parse_best_move(v)
 
 
-def main():
+def main(thinking_time, **kwargs):
     pos = get_start_position()
     print pos_to_str(pos)
 
@@ -148,7 +153,7 @@ def main():
         print pos_to_str(pos)
 
         fen = pos.fen
-        n = next_move(fen, thinking_time=100)
+        n = next_move(fen, thinking_time)
         pos.make_move(chess.Move.from_uci(n))
 
         print pos_to_str(pos)
@@ -161,5 +166,22 @@ def main():
             sys.exit(0)
 
 
+def build_option_parser():
+    p = OptionParser('usage: chess [options]')
+
+    p.add_option('-t', '--thinking-time', default=100,
+            action='store', type='int', dest='thinking_time',
+            help='How long the engine is allowed to think in ms.')
+
+    return p
+
+
 if __name__ == '__main__':
-    main()
+    parser = build_option_parser()
+    (options, args) = parser.parse_args()
+
+    try:
+        main(thinking_time=options.thinking_time)
+    except KeyboardInterrupt:
+        print '\nExiting...'
+        print 'Thanks for playing!'

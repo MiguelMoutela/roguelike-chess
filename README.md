@@ -28,11 +28,15 @@ Screenshot
 
 ![chess](http://i.imgur.com/GTDrF89.png)
 
+Options
+-------
+
+    -t , --thinking-time   Thinking time in milliseconds
+
 Caveats & TODO
 --------------
 
-You can only play as white.  The Stockfish engine gets 100ms to think.  There
-is no way to replay or store the game.
+You can only play as white.  There is no way to replay or store the game.
 
 License
 -------
