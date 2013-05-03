@@ -2,7 +2,8 @@ roguelike chess
 ===============
 
 Roguelike chess is a simple UCI interface that enables you to play chess in the
-terminal using ASCII characters.
+terminal using ASCII characters.  I have been testing with the amazing
+[Stockfish][1] engine but any UCI compliant engine should work.
 
 Install
 -------
@@ -37,3 +38,5 @@ License
 -------
 
 GPLv3
+
+[1]: http://stockfishchess.org/
