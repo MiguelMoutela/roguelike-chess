@@ -31,7 +31,7 @@ Caveats & TODO
 --------------
 
 You can only play as white.  The Stockfish engine gets 100ms to think.  There
-is no way to replay to store the game.
+is no way to replay or store the game.
 
 License
 -------
