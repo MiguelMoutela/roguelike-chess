@@ -31,7 +31,8 @@ Screenshot
 Options
 -------
 
-    -t , --thinking-time   Thinking time in milliseconds
+    -s, --skill   Engine skill: 1-20; Default: 1
+    -t, --time    Time per player in minutes; Default 5
 
 Caveats & TODO
 --------------

@@ -1,6 +1,7 @@
 import subprocess
 from optparse import OptionParser
 import sys
+import time as _time
 import chess
 
 
@@ -34,6 +35,9 @@ def show_square(s):
 
 WHITE_TEMPLATE = """
 
+White time left: {wtime}
+Black time left: {btime}
+
    +-+-+-+-+-+-+-+-+
 8  |{a8}|{b8}|{c8}|{d8}|{e8}|{f8}|{g8}|{h8}|
    +-+-+-+-+-+-+-+-+
@@ -57,19 +61,22 @@ WHITE_TEMPLATE = """
 """
 
 
-def pos_to_str(pos):
-    data = {}
+def format_time(t):
+    return int(float(t) / 1000.0)
+
+
+def pos_to_str(pos, wtime, btime):
+    data = {
+        'wtime': format_time(wtime),
+        'btime': format_time(btime)
+    }
+
     for line in BOARD:
         for p in line:
             x = show_square(pos[p])
             data[p] = x
 
     return WHITE_TEMPLATE.format(**data)
-
-
-def fen_to_board(fen):
-    pos = chess.Position(fen)
-    return pos_to_str(pos)
 
 
 def get_start_position():
@@ -111,36 +118,61 @@ class Engine(object):
                 if text == 'readyok':
                     break
 
+    def go(self, wtime, btime):
+        start = _time.time()
+
+        self.put('go wtime %s btime %s' % (wtime, btime))
+        v = self.get(wait=True)
+        ms = (_time.time() - start) * 1000
+
+        self.get()
+        self.put('quit')
+
+        return parse_best_move(v), ms
+
 
 def parse_best_move(value):
     return value.split(' ')[1]
 
 
-def next_move(fen, thinking_time):
+def next_move(fen, skill, wtime, btime):
     e = Engine()
     e.get()
     e.put('uci')
     e.get()
     e.put('ucinewgame')
     e.get()
+    e.put('setoption name Skill Level value %s' % skill)
+    e.get()
     e.put('position fen %s' % fen)
     e.get()
-    e.put('go movetime %s' % thinking_time)
-    v = e.get(wait=True)
-    e.get()
-    e.put('quit')
 
-    return parse_best_move(v)
+    return e.go(wtime, btime)
 
 
-def main(thinking_time, **kwargs):
+def main(skill, time, **kwargs):
     pos = get_start_position()
-    print pos_to_str(pos)
+    wtime = time * 60 * 1000
+    btime = time * 60 * 1000
+
+    print pos_to_str(pos, wtime, btime)
 
     while True:
+
+
+        if wtime <= 0:
+            print 'White out of time'
+            break
+
+        if btime <= 0:
+            print 'Black out of time'
+            break
+
         move = None
 
         while not move:
+            start = _time.time()
+
             next_input = raw_input('Your next move in SAN: ')
             try:
                 move = pos.get_move_from_san(next_input)
@@ -148,15 +180,20 @@ def main(thinking_time, **kwargs):
                 print 'Invalid move, try again'
                 move = None
 
+        ms = (_time.time() - start) * 1000
+        wtime -= int(ms)
+
         pos.make_move(move)
 
-        print pos_to_str(pos)
+        print pos_to_str(pos, wtime, btime)
 
         fen = pos.fen
-        n = next_move(fen, thinking_time)
+        n, time_taken = next_move(fen, skill, wtime, btime)
+
+        btime -= int(time_taken)
         pos.make_move(chess.Move.from_uci(n))
 
-        print pos_to_str(pos)
+        print pos_to_str(pos, wtime, btime)
 
         if pos.is_check():
             print 'Check!'
@@ -169,9 +206,11 @@ def main(thinking_time, **kwargs):
 def build_option_parser():
     p = OptionParser('usage: chess [options]')
 
-    p.add_option('-t', '--thinking-time', default=100,
-            action='store', type='int', dest='thinking_time',
-            help='How long the engine is allowed to think in ms.')
+    p.add_option('-s', '--skill', default=1, action='store', type='int',
+            dest='skill', help='Engine skill: 1-20; Default: 1')
+
+    p.add_option('-t', '--time', default=5, action='store', type='int',
+            dest='time', help='Time per player in minutes; Default: 5')
 
     return p
 
@@ -181,7 +220,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     try:
-        main(thinking_time=options.thinking_time)
+        main(skill=options.skill, time=options.time)
     except KeyboardInterrupt:
         print '\nExiting...'
         print 'Thanks for playing!'
